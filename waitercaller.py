@@ -1,9 +1,10 @@
 from flask import Flask, render_template, redirect, url_for, request
-from flask_login import LoginManager, login_required, login_user, logout_user
+from flask_login import LoginManager, login_required, login_user, logout_user, current_user
+
+import config
 from mockdbhelper import MockDBHelper as DBHelper
 import os
 from passwordhelper import PasswordHelper
-
 
 from user import User
 
@@ -47,7 +48,6 @@ def register():
     return redirect(url_for('home'))
 
 
-
 @app.route('/logout')
 def logout():
     logout_user()
@@ -61,10 +61,36 @@ def load_user(user_id):
         return User(user_id)
 
 
+@app.route("/dashboard")
+@login_required
+def dashboard():
+    return render_template("dashboard.html")
+
+
 @app.route('/account')
 @login_required
 def account():
-    return "You are logged in!"
+    tables = DB.get_tables(current_user.get_id())
+    return render_template("account.html", tables=tables)
+
+
+@app.route("/account/createtable", methods=["POST"])
+@login_required
+def account_createtable():
+    tablename = request.form.get("tablenumber")
+    tableid = DB.add_table(tablename, current_user.get_id())
+    new_url = config.base_url + "newrequest/" + tableid
+    DB.update_table(tableid, new_url)
+    return redirect(url_for('account'))
+
+
+@app.route("/account/deletetable")
+@login_required
+def account_deletetable():
+    tableid = request.args.get("tableid")
+    DB.delete_table(tableid)
+    return redirect(url_for('account'))
+
 
 
 if __name__ == '__main__':
