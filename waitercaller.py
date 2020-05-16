@@ -2,9 +2,13 @@ import datetime
 
 from flask import Flask, render_template, redirect, url_for, request
 from flask_login import LoginManager, login_required, login_user, logout_user, current_user
-
 import config
-from mockdbhelper import MockDBHelper as DBHelper
+
+if config.test:
+    from mockdbhelper import MockDBHelper as DBHelper
+else:
+    from dbhelper import DBHelper
+
 import os
 from passwordhelper import PasswordHelper
 from bitlyhelper import BitlyHelper
@@ -52,7 +56,8 @@ def register():
         salt = PH.get_salt()
         hashed = PH.get_hash(form.password2.data + salt)
         DB.add_user(form.email.data, salt, hashed)
-        return render_template("home.html", loginform=LoginForm(), registrationform=form, onloadmessage="Registration successful. Please log in.")
+        return render_template("home.html", loginform=LoginForm(), registrationform=form,
+                               onloadmessage="Registration successful. Please log in.")
     return render_template("home.html", loginform=LoginForm(), registrationform=form)
 
 
@@ -104,7 +109,7 @@ def account_createtable():
         tableid = DB.add_table(form.tablenumber.data,
                                current_user.get_id())
         new_url = BH.shorten_url(config.base_url + "newrequest/" +
-                             tableid)
+                                 str(tableid))
         DB.update_table(tableid, new_url)
         return redirect(url_for('account'))
     return render_template("account.html", createtableform=form,
@@ -121,8 +126,9 @@ def account_deletetable():
 
 @app.route("/newrequest/<tid>")
 def new_request(tid):
-    DB.add_request(tid, datetime.datetime.now())
-    return "Your request has been logged and a waiter will be with you shortly"
+    if DB.add_request(tid, datetime.datetime.now()):
+        return "Your request has been logged and a waiter will be with you shortly"
+    return "There is already a request pending for this table. Please be patient, a waiter will be there ASAP."
 
 
 if __name__ == '__main__':
